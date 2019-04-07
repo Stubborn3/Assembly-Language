@@ -1,0 +1,370 @@
+include irvine32.inc
+
+.data
+	string1 byte '-'
+	Board byte 7 dup('-')
+	      byte 7 dup('-')
+	      byte 7 dup('-')
+	      byte 7 dup('-')
+	      byte 7 dup('-')
+	      byte 7 dup('-')
+
+	GameFinished byte 0
+	start byte "Game Start",0
+	player byte ' '
+	space byte ' '
+	StringOutputboard byte "Outputboard",0
+	muneeb byte "Player Muneeb turn" , 0
+	tashi byte "Player tashi turn" , 0
+	CM byte "Enter ColumnNumber",0
+	Range byte "Out of Range",0
+	Draw byte "IT IS DRAW",0
+	winner byte " is the winner",0
+	again byte "Do you want play again:   Y/N", 0
+	ColumnNumber byte 0
+	valid byte 0
+	row byte 0
+	ValidColumn byte 0
+	ValidRow byte 0
+	WinnerFound byte 0
+	BlankFound byte 0
+	RowNUmber byte 0
+	Numbercolumn byte 0
+	NumberRow byte 0
+
+.code
+	SetUpgame proc
+		mov player , 'T'
+		mov edx , offset start
+		call writestring
+		call crlf
+		mov GameFinished , 0
+		ret
+	SetUpgame endp
+
+	Outputboard proc
+		mov edx , offset StringOutputboard
+		call writestring
+		call crlf
+		xor eax,eax
+		xor edi , edi
+		xor esi,esi
+		xor ecx,ecx
+		mov esi, 35
+		mov edi, 0
+		mov ecx, 6
+		for1:
+			push ecx
+			mov edi, 0
+			mov ecx, 7
+			for2:
+				mov al, Board[esi+edi]
+				call writechar
+				mov al, space
+				call writechar
+				inc edi
+			Loop for2
+			call crlf
+			sub esi, 7
+			pop ecx
+		Loop for1
+		ret
+	Outputboard endp
+	
+	
+	playerMakesmove proc
+		xor eax,eax
+		call PlayerChoosesColumn
+		mov al,ColumnNumber
+		mov ValidColumn, al
+		call NextFreePositionInColumn
+		mov al, row
+		mov ValidRow, al
+		xor eax,eax
+		xor ebx,ebx
+		xor ecx,ecx
+		mov al, 7
+		mov cl,ColumnNumber
+		mul ValidRow
+		mov bl,player
+		mov Board[eax+ecx], bl
+		ret
+	playerMakesmove endp
+	
+	
+	CheckPlayerHasWon proc
+		xor esi,esi
+		movzx esi, WinnerFound
+		.if esi == 0
+			call CheckDiagonalRowAndColumn
+		.endif
+		xor esi,esi
+		movzx esi, WinnerFound
+		.if esi == 0
+			call CheckHorizontalLineValidRow
+		.endif
+		xor esi,esi
+		movzx esi, WinnerFound
+		.if esi == 0
+			call CheckVerticalLineValidColumn
+		.endif
+		xor esi,esi
+		movzx esi, WinnerFound
+		.if esi == 1
+			xor eax,eax
+			mov al, player
+			call writechar
+			mov edx, offset winner
+			call writestring
+			call crlf
+			mov GameFinished, 1
+		.else
+			call CheckFullBoard
+		
+		.endif
+		ret
+	CheckPlayerHasWon endp
+	
+	
+	CheckFullBoard proc
+		mov BlankFound, 0
+		xor esi,esi
+		xor edi,edi
+		xor eax, eax
+		.while esi != 42
+			.if Board[esi] == '-'
+				mov BlankFound, 1
+			.endif
+			inc esi
+		.endw
+		
+		.if BlankFound == 0
+			mov edx, offset Draw
+			call writeString
+			call crlf
+			mov GameFinished, 1
+		.endif
+		ret
+	CheckFullBoard endp
+	
+	CheckHorizontalLineValidRow proc
+		xor eax,eax
+		xor edi,edi
+		xor esi,esi
+		xor ebx,ebx
+		mov esi, 7
+		mov al, ValidRow
+		mul esi
+		
+		.while edi != 4
+			mov bl, player
+			.if Board[eax+edi] == bl  && Board[eax+edi+1] == bl && Board[eax+edi+2] == bl && Board[eax+edi+3] == bl
+				mov WinnerFound, 1
+			.endif
+			inc edi
+		.endw
+		ret
+	CheckHorizontalLineValidRow endp
+	
+	CheckVerticalLineValidColumn proc
+		xor eax,eax
+		mov esi, 7
+		mov al, ValidRow
+		mul esi
+		xor esi,esi
+		movzx esi,ValidColumn
+		.if eax >= 21 && eax <= 41
+			xor ebx,ebx
+			mov bl, player
+			.if Board[eax+esi] == bl && Board[(eax-7)+esi] == bl && Board[(eax-14)+esi] == bl && Board[(eax-21)+esi] == bl
+				mov winnerFound, 1			
+			.endif			
+		.endif
+		ret		
+	CheckVerticalLineValidColumn endp
+	
+	
+	SwapPlayer PROC
+		xor eax, eax
+		mov al , player
+		cmp al , 'T'
+		jne next
+		xor eax,eax
+		mov al , 'M'
+		mov Player,al
+		jmp next1
+		next:
+		xor eax,eax
+		mov al , 'T'
+		mov Player , al
+		next1:
+		ret
+	SwapPlayer ENDP
+	
+	PlayerChoosesColumn proc
+		xor eax,eax
+		mov al, Player
+		.if al == 'M'
+			mov edx, offset muneeb
+			call writestring
+			call crlf
+		
+		.else
+			mov edx, offset tashi
+			call writestring
+			call crlf
+		
+		.endif
+		xor ecx,ecx
+		xor eax,eax
+		dowhile:
+			mov edx, offset CM
+			call writestring
+			call crlf
+			call readint
+			mov ColumnNumber, al
+			call columnNumberValid
+			xor eax,eax
+			mov al, Valid
+			cmp al, 1
+			jz next
+		Loop dowhile
+		next:
+		ret
+	PlayerChoosesColumn endp
+
+	ColumnNumberValid proc
+		xor eax,eax
+		xor esi,esi
+		mov esi, 35
+		mov al, ColumnNumber
+		mov valid, 0
+		xor ebx,ebx
+		mov bl, valid
+		.if ColumnNumber >= 0 && ColumnNumber <= 6
+			.if Board[esi+eax] == '-'
+			  mov valid, 1
+			.endif
+			
+		.else
+			.if valid == 0
+				mov edx, offset Range
+				call writestring
+				call crlf
+			.endif
+		.endif
+		ret
+	ColumnNumberValid endp
+
+
+
+	NextFreePositionInColumn proc     ;For Wajhat
+		mov row , 0
+		xor eax,eax
+		xor esi,esi
+		xor edi,edi
+		movzx esi, row
+		movzx edi, ValidColumn
+		.While Board[esi + edi] != '-'
+			mov al, Board[esi + edi]
+			cmp al, '-'
+			jz next
+			inc row
+			add esi, 7
+		.ENDW
+		next:
+		ret
+	NextFreePositionInColumn endp
+
+
+CheckDiagonalRowAndColumn proc
+	xor esi , esi
+	xor edi , edi
+	xor ebx, ebx
+	mov ecx , 4
+	L1:
+		push ecx
+		mov edi, esi
+		mov bl, player
+		mov ecx, 3
+		l2:
+			.if (Board[edi] == bl) && (Board[edi+8] == bl) && (Board[edi+16] == bl) && (Board[edi+24] == bl)
+				mov winnerfound, 1
+			.ENDIF
+			add edi, 7
+		loop l2
+		inc esi
+		pop ecx
+	loop L1
+	
+	xor esi , esi
+	xor edi , edi
+	xor ebx, ebx
+	mov esi, 21
+	mov ecx , 4
+	L3:
+		push ecx
+		mov edi, esi
+		mov bl, player
+		mov ecx, 3
+		l4:
+			.if (Board[edi] == bl) && (Board[edi-6] == bl) && (Board[edi-12] == bl) && (Board[edi-18] == bl)
+				mov winnerfound, 1
+			.ENDIF
+			add edi, 7
+		loop l4
+		inc esi
+		pop ecx
+	loop L3
+	ret
+CheckDiagonalRowAndColumn endp
+
+resetFuncton proc
+	mov ValidColumn, 0
+	mov ValidRow, 0
+	mov WinnerFound, 0
+	mov BlankFound, 0
+	mov RowNUmber, 0
+	mov Numbercolumn, 0
+	mov NumberRow , 0
+	mov gameFinished ,0
+	mov ecx, 42
+	clean:
+		mov board[esi], '-'
+		inc esi
+	loop clean
+	xor esi,esi
+	ret
+resetFuncton endp
+	
+
+main proc
+	start1:
+	xor eax , eax
+	xor ebx , ebx
+	xor ecx , ecx
+	xor edx , edx
+	xor esi , esi
+	xor edi , edi
+	call resetFuncton
+	call SetUPGame
+	call Outputboard	
+	.while gameFinished == 0
+		call PlayerMakesMove
+		call Outputboard
+		call CheckPlayerHasWon
+		.if gamefinished == 0
+		call SwapPlayer
+		.endif
+	.endW
+	mov edx, offset again
+	call writestring
+	call crlf
+	call readchar
+	cmp al, 'y'
+	jz start1
+
+
+exit
+main endp
+end main
